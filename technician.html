@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BesCutter · Installation Tracker</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red: #c0392b; --red-light: #fdf2f1; --red-border: #e8b4b0;
+    --gray-50: #f9f9f9; --gray-100: #f2f2f2; --gray-200: #e4e4e4;
+    --gray-400: #a0a0a0; --gray-600: #666; --gray-800: #222;
+    --blue-light: #eef4ff; --blue: #2563eb; --blue-border: #bfcfed;
+    --green-light: #f0faf0; --green: #16a34a; --green-border: #b6ddb6;
+    --amber-light: #fffbeb; --amber: #b45309; --amber-border: #f0d080;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); font-size: 15px; line-height: 1.5; min-height: 100vh; }
+  header { background: #fff; border-bottom: 1px solid var(--gray-200); padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 6px; border-radius: 3px; }
+  .brand-name { font-size: 13px; font-weight: 600; color: var(--gray-800); letter-spacing: 0.3px; }
+  .staff-badge { font-size: 11px; color: var(--gray-400); border: 1px solid var(--gray-200); padding: 3px 8px; border-radius: 20px; }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
+  .page-title { margin-bottom: 24px; }
+  .page-title h1 { font-size: 22px; font-weight: 600; }
+  .page-title p { font-size: 13px; color: var(--gray-400); margin-top: 3px; }
+  .section { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .section-header { padding: 14px 20px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; }
+  .section-num { font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: 0.5px; min-width: 26px; }
+  .section-title { font-size: 14px; font-weight: 600; color: var(--gray-800); }
+  .section-body { padding: 16px 20px; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; letter-spacing: 0.2px; }
+  input[type=text], input[type=date], select, textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 7px;
+    font-size: 14px; font-family: var(--font); color: var(--gray-800); background: #fff;
+    transition: border-color 0.15s; -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--red); box-shadow: 0 0 0 3px rgba(192,57,43,0.08); }
+  textarea { resize: vertical; min-height: 90px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .field-row { grid-template-columns: 1fr; } }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px;
+  }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-done   { background: var(--green-light); color: var(--green);  border: 1px solid var(--green-border); }
+  .badge-active { background: var(--blue-light);  color: var(--blue);   border: 1px solid var(--blue-border); }
+  .badge-issue  { background: var(--red-light);   color: var(--red);    border: 1px solid var(--red-border); }
+  .upload-zone { border: 1.5px dashed var(--gray-200); border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .upload-zone:hover { border-color: var(--red); background: var(--red-light); }
+  .upload-zone input { display: none; }
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .photo-thumb { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; border: 1px solid var(--gray-200); }
+  .photo-thumb-wrap { position: relative; display: inline-block; }
+  .photo-remove { position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; background: var(--red); color: #fff; border-radius: 50%; border: none; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .btn-row { display: flex; gap: 10px; margin-top: 6px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 18px; border-radius: 7px; font-size: 14px; font-weight: 600; font-family: var(--font); cursor: pointer; transition: opacity 0.15s, transform 0.1s; border: none; }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--red); color: #fff; flex: 2; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid var(--red-border); flex: 1; }
+  .tl-item { display: flex; gap: 12px; padding-bottom: 16px; }
+  .tl-item:last-child { padding-bottom: 0; }
+  .tl-left { display: flex; flex-direction: column; align-items: center; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .tl-line { width: 1px; background: var(--gray-200); flex: 1; margin: 4px 0 0; }
+  .tl-item:last-child .tl-line { display: none; }
+  .tl-meta { font-size: 11px; color: var(--gray-400); margin-bottom: 3px; }
+  .tl-text { font-size: 13px; color: var(--gray-800); }
+  .tl-photos { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .tl-photo { width: 52px; height: 52px; border-radius: 6px; object-fit: cover; border: 1px solid var(--gray-200); cursor: pointer; }
+  .divider { height: 1px; background: var(--gray-100); margin: 14px 0; }
+  .empty { text-align: center; padding: 32px 20px; color: var(--gray-400); font-size: 13px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--gray-800); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; pointer-events: none; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .no-jobs { text-align:center; padding: 32px 20px; }
+  .no-jobs p { font-size: 14px; color: var(--gray-400); margin-bottom: 6px; }
+  .no-jobs small { font-size: 12px; color: var(--gray-400); }
+  .loading-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { text-align: center; font-size: 11px; color: var(--gray-400); padding: 20px; }
+  .photo-note { font-size: 11px; color: var(--gray-400); margin-top: 6px; }
+  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 300; align-items: center; justify-content: center; padding: 20px; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 90vh; border-radius: 8px; }
+  .lightbox-close { position: absolute; top: 16px; right: 20px; color: #fff; font-size: 28px; cursor: pointer; background: none; border: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-badge">BC</div>
+    <div class="brand-name">BESCUTTER</div>
+  </div>
+  <div class="staff-badge">Technician</div>
+</header>
+
+<main>
+  <div class="page-title">
+    <h1>Installation Tracker</h1>
+    <p>Select a job and log today's progress.</p>
+  </div>
+
+  <!-- 01 · Select installation -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">01 ·</span>
+      <span class="section-title">Select installation</span>
+    </div>
+    <div class="section-body">
+      <div class="field">
+        <label>Active job</label>
+        <select id="sel-install" onchange="loadInstall()">
+          <option value="">— Loading jobs… —</option>
+        </select>
+      </div>
+      <div id="no-jobs" class="no-jobs" style="display:none;">
+        <p>No jobs available yet.</p>
+        <small>Ask your supervisor to create a job from the dashboard.</small>
+      </div>
+      <div id="install-meta" style="display:none;">
+        <div class="divider"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:13px;font-weight:600;" id="meta-client"></div>
+            <div style="font-size:11px;color:var(--gray-400);" id="meta-model"></div>
+          </div>
+          <span class="badge badge-active" id="meta-status">In progress</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 · Log today's progress -->
+  <div class="section" id="sec-log" style="display:none;">
+    <div class="section-header">
+      <span class="section-num">02 ·</span>
+      <span class="section-title">Log today's progress</span>
+    </div>
+    <div class="section-body">
+      <div class="field-row">
+        <div class="field">
+          <label>Your name</label>
+          <input type="text" id="log-tech" placeholder="e.g. J. Pérez">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="log-date">
+        </div>
+      </div>
+      <div class="field">
+        <label>Photos of today's work</label>
+        <div class="upload-zone" onclick="document.getElementById('photo-input').click()">
+          <div style="font-size:22px;margin-bottom:4px;">📷</div>
+          <div style="font-size:13px;font-weight:500;color:var(--gray-600);">Add photos</div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:2px;">Tap to open camera or select files — max 8</div>
+          <input type="file" id="photo-input" accept="image/*" multiple capture="environment" onchange="handlePhotos(event)">
+        </div>
+        <div class="photo-grid" id="photo-grid"></div>
+      </div>
+      <div class="field">
+        <label>What did you do today?</label>
+        <textarea id="log-notes" placeholder="Describe the activities completed today…"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-danger" id="btn-issue" onclick="submitUpdate('issue')">⚠ Report issue</button>
+        <button class="btn btn-primary" id="btn-submit" onclick="submitUpdate('progress')">↑ Submit today's update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 · History -->
+  <div class="section" id="sec-history" style="display:none;">
+    <div class="section-header">
+      <span class="section-num">03 ·</span>
+      <span class="section-title">Update history</span>
+    </div>
+    <div class="section-body">
+      <div id="history-list"></div>
+    </div>
+  </div>
+</main>
+
+<footer>BesCutter Internal Tools — For staff use only &nbsp;·&nbsp; <a href="https://bescutter.com" style="color:var(--gray-400);">bescutter.com →</a></footer>
+<div class="toast" id="toast"></div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightbox-img" src="" alt="Photo preview">
+</div>
+
+<script>
+/* ── Configuration ── */
+const API_URL = 'https://script.google.com/a/macros/bescutter.com/s/AKfycbxSRjjNj_cg2hgXSrgBAjjLB2HMPn2lMwKwTfs4zzzesR_IT-itEWxmMDtlGO5CydJ1/exec';
+
+let allJobs = [];
+let selectedPhotos = [];
+let currentInstallId = null;
+let isSubmitting = false;
+
+function initPage() {
+  document.getElementById('log-date').valueAsDate = new Date();
+  const lastTech = localStorage.getItem('bc_last_tech');
+  if (lastTech) document.getElementById('log-tech').value = lastTech;
+  fetchJobs();
+}
+
+/* ── Fetch jobs from Google Sheet ── */
+function fetchJobs() {
+  fetch(API_URL)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { showToast('Could not load jobs.'); return; }
+      allJobs = data.jobs || [];
+      populateJobSelect();
+    })
+    .catch(() => showToast('Connection error. Check your internet.'));
+}
+
+function populateJobSelect() {
+  const active = allJobs.filter(j => j.status !== 'Completed');
+  const sel = document.getElementById('sel-install');
+  const current = sel.value;
+
+  sel.innerHTML = '<option value="">— Select a job —</option>';
+  active.forEach(job => {
+    const opt = document.createElement('option');
+    opt.value = job.id;
+    opt.textContent = job.client + ' — ' + job.model;
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('no-jobs').style.display = active.length === 0 ? 'block' : 'none';
+
+  if (current && active.find(j => j.id === current)) {
+    sel.value = current;
+    loadInstall();
+  }
+}
+
+function loadInstall() {
+  const id = document.getElementById('sel-install').value;
+  if (!id) {
+    document.getElementById('install-meta').style.display = 'none';
+    ['sec-log','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
+    currentInstallId = null;
+    return;
+  }
+
+  currentInstallId = id;
+  const job = allJobs.find(j => j.id === id);
+  if (!job) return;
+
+  document.getElementById('meta-client').textContent = job.client;
+  document.getElementById('meta-model').textContent  = job.model + (job.tech ? ' · ' + job.tech : '') + (job.startDate ? ' · Started ' + job.startDate : '');
+  document.getElementById('install-meta').style.display = 'block';
+
+  const statusEl = document.getElementById('meta-status');
+  if (job.status === 'Issue') { statusEl.className = 'badge badge-issue'; statusEl.textContent = 'Issue'; }
+  else if (job.status === 'Completed') { statusEl.className = 'badge badge-done'; statusEl.textContent = 'Completed'; }
+  else { statusEl.className = 'badge badge-active'; statusEl.textContent = 'In progress'; }
+
+  renderHistory(job);
+
+  ['sec-log','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
+  selectedPhotos = [];
+  document.getElementById('photo-grid').innerHTML = '';
+  document.getElementById('log-notes').value = '';
+}
+
+function renderHistory(job) {
+  const container = document.getElementById('history-list');
+  const history   = job.history || [];
+  if (!history.length) {
+    container.innerHTML = '<div class="empty">📋<br>No updates logged yet. Be the first to log today\'s progress.</div>';
+    return;
+  }
+  container.innerHTML = history.map((h, idx) => {
+    const isLast      = idx === history.length - 1;
+    const dotColor    = h.type === 'issue' ? 'var(--red)' : 'var(--blue)';
+    const issueBadge  = h.type === 'issue' ? '<span class="badge badge-issue" style="font-size:10px;margin-right:6px;">Issue</span>' : '';
+    const photosHtml  = (h.photoUrls && h.photoUrls.length) ?
+      '<div class="tl-photos">' + h.photoUrls.map(url =>
+        '<img src="' + url + '" class="tl-photo" onclick="openLightbox(\'' + url + '\')" alt="Progress photo">'
+      ).join('') + '</div>' : '';
+    return '<div class="tl-item">' +
+      '<div class="tl-left">' +
+        '<div class="tl-dot" style="background:' + dotColor + ';"></div>' +
+        (isLast ? '' : '<div class="tl-line"></div>') +
+      '</div>' +
+      '<div>' +
+        '<div class="tl-meta">' + h.date + ' · ' + h.tech + '</div>' +
+        '<div class="tl-text">' + issueBadge + (h.note || 'Update logged.') + '</div>' +
+        photosHtml +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+function handlePhotos(e) {
+  const files = Array.from(e.target.files);
+  if (selectedPhotos.length + files.length > 8) { showToast('Maximum 8 photos allowed.'); return; }
+  files.forEach(file => {
+    const r = new FileReader();
+    r.onload = ev => { selectedPhotos.push(ev.target.result); renderPhotoGrid(); };
+    r.readAsDataURL(file);
+  });
+  e.target.value = '';
+}
+
+function renderPhotoGrid() {
+  document.getElementById('photo-grid').innerHTML = selectedPhotos.map((src, i) =>
+    '<div class="photo-thumb-wrap">' +
+      '<img src="' + src + '" class="photo-thumb" alt="Photo ' + (i+1) + '">' +
+      '<button class="photo-remove" onclick="removePhoto(' + i + ')" aria-label="Remove">×</button>' +
+    '</div>'
+  ).join('');
+}
+
+function removePhoto(i) { selectedPhotos.splice(i, 1); renderPhotoGrid(); }
+
+function submitUpdate(type) {
+  if (isSubmitting) return;
+
+  const techName = document.getElementById('log-tech').value.trim();
+  const dateVal  = document.getElementById('log-date').value;
+  const notes    = document.getElementById('log-notes').value.trim();
+
+  if (!techName)   { showToast('Please enter your name.'); document.getElementById('log-tech').focus(); return; }
+  if (!dateVal)    { showToast('Please select a date.');   document.getElementById('log-date').focus();  return; }
+  if (!currentInstallId) { showToast('Please select a job.'); return; }
+  if (!notes)      { showToast('Please describe what you did today.'); document.getElementById('log-notes').focus(); return; }
+
+  localStorage.setItem('bc_last_tech', techName);
+
+  const dateObj = new Date(dateVal + 'T12:00:00');
+  const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  setSubmitting(true);
+
+  fetch(API_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'submit_log',
+      jobId:  currentInstallId,
+      date:   dateStr,
+      tech:   techName,
+      note:   notes,
+      type:   type,            // 'issue' or 'progress'
+      photos: selectedPhotos   // array of base64 data URLs
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    setSubmitting(false);
+    if (!data.ok) { showToast('Error: ' + (data.error || 'could not save.')); return; }
+
+    selectedPhotos = [];
+    document.getElementById('photo-grid').innerHTML = '';
+    document.getElementById('log-notes').value = '';
+    document.getElementById('log-date').valueAsDate = new Date();
+
+    showToast(type === 'issue' ? '⚠ Issue reported to supervisor.' : '✓ Update submitted successfully.');
+    fetchJobs();
+  })
+  .catch(() => {
+    setSubmitting(false);
+    showToast('Connection error — update not saved. Try again.');
+  });
+}
+
+function setSubmitting(state) {
+  isSubmitting = state;
+  document.getElementById('btn-submit').disabled = state;
+  document.getElementById('btn-issue').disabled = state;
+  document.getElementById('btn-submit').innerHTML = state ? '<span class="loading-spin"></span> Saving…' : '↑ Submit today\'s update';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+initPage();
+</script>
+</body>
+</html>
