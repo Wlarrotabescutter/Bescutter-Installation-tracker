@@ -85,7 +85,7 @@
   .tl-photo:hover { transform: scale(1.05); }
   .divider { height: 1px; background: var(--gray-100); margin: 16px 0; }
   .empty { text-align: center; padding: 36px 20px; color: var(--gray-400); font-size: 13px; line-height: 1.6; }
-  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(90px); background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 999; transition: transform 0.3s cubic-bezier(.2,.8,.2,1); max-width: 90vw; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(90px); background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 999; transition: transform 0.3s cubic-bezier(.2,.8,.2,1); max-width: min(90vw, 420px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; line-height: 1.4; text-align: center; }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .no-jobs { text-align:center; padding: 36px 20px; }
   .no-jobs p { font-size: 14px; color: var(--gray-500); margin-bottom: 6px; font-weight: 500; }
@@ -303,7 +303,11 @@ function populateJobSelect() {
   active.forEach(job => {
     const opt = document.createElement('option');
     opt.value = job.id;
-    opt.textContent = job.client + ' — ' + job.model;
+    // Append start date + a short unique tag so jobs with the same client/model are distinguishable
+    const tag = job.createdAt ? '#' + job.createdAt.toString().slice(-4) : '';
+    opt.textContent = job.client + ' — ' + job.model
+      + (job.startDate ? ' · ' + job.startDate : '')
+      + (tag ? ' · ' + tag : '');
     sel.appendChild(opt);
   });
   document.getElementById('no-jobs').style.display = active.length === 0 ? 'block' : 'none';
@@ -551,7 +555,7 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3500);
+  setTimeout(() => t.classList.remove('show'), 6000);
 }
 
 initPage();

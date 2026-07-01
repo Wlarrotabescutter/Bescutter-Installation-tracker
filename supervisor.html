@@ -459,7 +459,7 @@ function renderInstList() {
         '<div class="inst-avatar" style="background:' + av.bg + ';color:' + av.color + ';">' + ini + '</div>' +
         '<div class="inst-info">' +
           '<div class="inst-name">' + job.client + ' — ' + job.model + '</div>' +
-          '<div class="inst-sub">' + job.id + ' · ' + (job.tech||'Unassigned') + ' · ' + logCount + ' update' + (logCount!==1?'s':'') + ' · NP ' + npDone + '/' + npTotal + '</div>' +
+          '<div class="inst-sub">' + (job.jobId || job.id) + ' · ' + (job.tech||'Unassigned') + ' · ' + logCount + ' update' + (logCount!==1?'s':'') + ' · NP ' + npDone + '/' + npTotal + '</div>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">' +
           badge +
