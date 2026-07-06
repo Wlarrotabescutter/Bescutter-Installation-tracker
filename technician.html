@@ -179,7 +179,8 @@
         <div class="field-row">
           <div class="field">
             <label>Your name</label>
-            <input type="text" id="log-tech" placeholder="e.g. J. Pérez">
+            <input type="text" id="log-tech" list="technician-datalist" placeholder="Type or pick your name" autocomplete="off">
+            <datalist id="technician-datalist"></datalist>
           </div>
           <div class="field">
             <label>Date</label>
@@ -253,10 +254,33 @@
       </div>
     </div>
 
-    <!-- 06 · History -->
-    <div class="section" id="sec-history" style="display:none;">
+    <!-- 06 · Upload parameter files and backup -->
+    <div class="section" id="sec-parameters" style="display:none;">
       <div class="section-header">
         <span class="section-num">06</span>
+        <span class="section-title">Upload parameter files and backup</span>
+      </div>
+      <div class="section-body">
+        <div id="parameters-list"></div>
+        <div class="divider"></div>
+        <div class="field">
+          <label>Files</label>
+          <div class="upload-zone" onclick="document.getElementById('param-file-input').click()">
+            <div class="upload-icon">🗂️</div>
+            <div style="font-size:13px;font-weight:600;color:var(--gray-600);">Add files</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:2px;">Config files, backups, .zip — any file type, multiple allowed</div>
+            <input type="file" id="param-file-input" multiple onchange="handleParamFiles(event)">
+          </div>
+          <div id="param-file-grid" style="margin-top:10px;"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-param-upload" style="width:100%;" onclick="submitParameterFiles()">⬆ Upload to Dropbox</button>
+      </div>
+    </div>
+
+    <!-- 07 · History -->
+    <div class="section" id="sec-history" style="display:none;">
+      <div class="section-header">
+        <span class="section-num">07</span>
         <span class="section-title">Update history</span>
       </div>
       <div class="section-body">
@@ -309,6 +333,7 @@ function fetchJobs(firstLoad) {
       allJobs = data.jobs || [];
       requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Voltage Regulator','Transformer'];
       optionalComponents = data.optionalNameplateComponents || ['Air Compressor','Dust Collector','Fan'];
+      populateTechnicianDatalist(data.technicians || []);
       populateJobSelect();
     })
     .catch(() => {
@@ -318,6 +343,11 @@ function fetchJobs(firstLoad) {
           '<div style="font-size:12px;color:var(--gray-500);">Check your internet and refresh the page.</div>';
       } else { showToast('Connection error. Check your internet.'); }
     });
+}
+
+function populateTechnicianDatalist(technicians) {
+  const list = document.getElementById('technician-datalist');
+  list.innerHTML = technicians.map(t => '<option value="' + t.replace(/"/g,'&quot;') + '">').join('');
 }
 
 function populateJobSelect() {
@@ -340,7 +370,7 @@ function loadInstall() {
   const id = document.getElementById('sel-install').value;
   if (!id) {
     document.getElementById('install-meta').style.display = 'none';
-    ['sec-log','sec-nameplates','sec-license','sec-others','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
+    ['sec-log','sec-nameplates','sec-license','sec-others','sec-parameters','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
     currentInstallId = null;
     return;
   }
@@ -360,9 +390,10 @@ function loadInstall() {
   renderNameplates(job);
   renderLicense(job);
   renderOthers(job);
+  renderParameterFiles(job);
   renderHistory(job);
 
-  ['sec-log','sec-nameplates','sec-license','sec-others','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
+  ['sec-log','sec-nameplates','sec-license','sec-others','sec-parameters','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
   selectedPhotos = [];
   document.getElementById('photo-grid').innerHTML = '';
   document.getElementById('log-notes').value = '';
@@ -433,6 +464,89 @@ function renderOthers(job) {
       ).join('')
     : '';
   container.innerHTML = listHtml + (entries.length ? '' : '<div class="task-status" style="padding:4px 0 12px;">No extra components added yet.</div>');
+}
+
+// ── Parameter files & backup: repeatable, any file type (not just photos) ──
+let selectedParamFiles = [];   // { name, dataUrl }
+
+function renderParameterFiles(job) {
+  const entries = job.parameterFiles || [];
+  const container = document.getElementById('parameters-list');
+  const listHtml = entries.length
+    ? entries.map(e =>
+        '<div class="task-row">' +
+          '<div class="task-icon">🗂️</div>' +
+          '<div class="task-info"><div class="task-name">' + e.name + '</div>' +
+          '<div class="task-status">' + e.date + '</div></div>' +
+          '<a href="' + toDirectImg(e.url) + '" target="_blank" class="task-done">✓ View</a>' +
+        '</div>'
+      ).join('')
+    : '';
+  container.innerHTML = listHtml + (entries.length ? '' : '<div class="task-status" style="padding:4px 0 12px;">No files uploaded yet.</div>');
+}
+
+function handleParamFiles(e) {
+  const files = Array.from(e.target.files);
+  if (selectedParamFiles.length + files.length > 10) { showToast('Maximum 10 files per upload.'); return; }
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      selectedParamFiles.push({ name: file.name, dataUrl: ev.target.result });
+      renderParamFileGrid();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
+}
+
+function renderParamFileGrid() {
+  document.getElementById('param-file-grid').innerHTML = selectedParamFiles.map((f, i) =>
+    '<div class="task-row" style="padding:8px 0;">' +
+      '<div class="task-icon">📄</div>' +
+      '<div class="task-info"><div class="task-name">' + f.name + '</div></div>' +
+      '<button class="photo-remove" style="position:static;width:20px;height:20px;" onclick="removeParamFile(' + i + ')" aria-label="Remove">×</button>' +
+    '</div>'
+  ).join('');
+}
+
+function removeParamFile(i) { selectedParamFiles.splice(i, 1); renderParamFileGrid(); }
+
+function submitParameterFiles() {
+  if (!currentInstallId) { showToast('Please select a job first.'); return; }
+  const techName = document.getElementById('log-tech').value.trim();
+  if (!techName) { showToast('Please enter your name above first.'); document.getElementById('log-tech').focus(); return; }
+  if (!selectedParamFiles.length) { showToast('Choose at least one file first.'); return; }
+
+  localStorage.setItem('bc_last_tech', techName);
+  const btn = document.getElementById('btn-param-upload');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin"></span> Uploading…';
+
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'upload_parameter_files', jobId: currentInstallId,
+      files: selectedParamFiles, tech: techName, date: dateStr
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.innerHTML = '⬆ Upload to Dropbox';
+    if (!data.ok) { showToast('Error: ' + (data.error || 'upload failed')); return; }
+    showToast('✓ ' + data.count + ' file' + (data.count !== 1 ? 's' : '') + ' uploaded.');
+    selectedParamFiles = [];
+    renderParamFileGrid();
+    fetchAndRefreshCurrent();
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '⬆ Upload to Dropbox';
+    showToast('Connection error — not uploaded. Try again.');
+  });
 }
 
 function startNameplateUpload(component) {
@@ -527,7 +641,7 @@ function fetchAndRefreshCurrent() {
       if (!data.ok) return;
       allJobs = data.jobs || [];
       const job = allJobs.find(j => j.id === currentInstallId);
-      if (job) { renderNameplates(job); renderLicense(job); renderOthers(job); renderHistory(job); }
+      if (job) { renderNameplates(job); renderLicense(job); renderOthers(job); renderParameterFiles(job); renderHistory(job); }
     })
     .catch(() => {});
 }
