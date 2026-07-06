@@ -218,14 +218,22 @@
     </div>
     <div class="modal-body">
       <div class="field-row">
-        <div class="field"><label>Customer name</label><input type="text" id="new-client" placeholder="e.g. Quick Tie"></div>
+        <div class="field">
+          <label>Customer name</label>
+          <input type="text" id="new-client" list="customer-datalist" placeholder="Type or pick an existing customer" autocomplete="off">
+          <datalist id="customer-datalist"></datalist>
+        </div>
         <div class="field"><label>Machine model</label><input type="text" id="new-model" placeholder="e.g. SpaceSaver 12kw"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Assigned technician</label><input type="text" id="new-tech" placeholder="e.g. Emel Navarro"></div>
-        <div class="field"><label>Start date</label><input type="text" id="new-start" placeholder="e.g. Jun 30, 2026"></div>
+        <div class="field">
+          <label>Assigned technician</label>
+          <input type="text" id="new-tech" list="technician-datalist" placeholder="Type or pick a technician" autocomplete="off">
+          <datalist id="technician-datalist"></datalist>
+        </div>
+        <div class="field"><label>Start date</label><input type="date" id="new-start"></div>
       </div>
-      <div class="modal-hint">📁 A Dropbox folder will be created automatically inside <strong>00-DataCenter/Customer/installation Model</strong>. Job ID is generated from the customer initials + date.</div>
+      <div class="modal-hint">📁 A Dropbox folder will be created automatically inside <strong>00-DataCenter/Customer/installation Model</strong>. Job ID is generated from the customer name + model + date. If this customer is new, it's added to the Customers list automatically.</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
@@ -246,11 +254,15 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxSRjjNj_cg2hgXSrgBAjjL
 
 const NAMEPLATE_ICONS = {
   'Machine': '🛠️', 'Laser Head': '🔦', 'Air Compressor': '💨',
-  'Chiller': '❄️', 'Regulator': '🎛️', 'Transformer': '⚡', 'License Software': '🔑'
+  'Chiller': '❄️', 'Voltage Regulator': '🎛️', 'Transformer': '⚡',
+  'Dust Collector': '🌀', 'Fan': '🌬️', 'License Software': '🔑', 'Others': '➕'
 };
 
 let allJobs = [];
-let nameplateComponents = [];
+let requiredComponents = [];
+let optionalComponents = [];
+let customersList = [];
+let techniciansList = [];
 let activeFilter = 'all';
 let openDetail = null;
 let isCreating = false;
@@ -278,7 +290,11 @@ function fetchAndRender(firstLoad) {
       document.getElementById('content').style.display = 'block';
       if (!data.ok) { showToast('Could not load data: ' + (data.error||'')); return; }
       allJobs = data.jobs || [];
-      nameplateComponents = data.nameplateComponents || ['Machine','Laser Head','Air Compressor','Chiller','Regulator','Transformer','License Software'];
+      requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Voltage Regulator','Transformer'];
+      optionalComponents = data.optionalNameplateComponents || ['Air Compressor','Dust Collector','Fan'];
+      customersList = data.customers || [];
+      techniciansList = data.technicians || [];
+      populateDatalists();
       render();
     })
     .catch(() => {
@@ -289,6 +305,14 @@ function fetchAndRender(firstLoad) {
       } else { showToast('Connection error loading jobs.'); }
     });
 }
+
+function populateDatalists() {
+  const custList = document.getElementById('customer-datalist');
+  custList.innerHTML = customersList.map(c => '<option value="' + c.replace(/"/g,'&quot;') + '">').join('');
+  const techList = document.getElementById('technician-datalist');
+  techList.innerHTML = techniciansList.map(t => '<option value="' + t.replace(/"/g,'&quot;') + '">').join('');
+}
+
 
 function getStatus(job) {
   if (job.status === 'Completed') return 'completed';
@@ -414,10 +438,12 @@ function renderInstList() {
     const logCount = history.length;
     const lastDate = history.length ? history[0].date : '—';
 
-    // Nameplate progress
+    // Nameplate progress — only REQUIRED components count toward the completion ratio
     const nameplates = job.nameplates || {};
-    const npDone = nameplateComponents.filter(c => nameplates[c]).length;
-    const npTotal = nameplateComponents.length;
+    const npDone = requiredComponents.filter(c => nameplates[c]).length;
+    const npTotal = requiredComponents.length;
+    const optDone = optionalComponents.filter(c => nameplates[c]).length;
+    const others = job.otherComponents || [];
 
     const histHtml = history.length === 0
       ? '<div style="font-size:13px;color:var(--gray-400);padding:8px 0;">No updates logged yet.</div>'
@@ -436,19 +462,29 @@ function renderInstList() {
           '</div>';
         }).join('');
 
-    // Nameplate chips
-    const npChips = nameplateComponents.map(comp => {
+    // Nameplate chips — required and optional rendered as separate groups
+    function chip(comp, isOptional) {
       const url = nameplates[comp];
       const icon = NAMEPLATE_ICONS[comp] || '📄';
       const done = !!url;
       const statusEl = done
         ? '<a href="' + toDirectImg(url) + '" target="_blank" class="np-chip-status" onclick="event.stopPropagation();">✓</a>'
         : '<span class="np-chip-status" style="color:var(--gray-300);">○</span>';
+      const optTag = isOptional ? ' <span style="font-size:9px;color:var(--gray-400);">(opt)</span>' : '';
       return '<div class="np-chip ' + (done?'done':'pending') + '">' +
         '<span class="np-chip-icon">' + icon + '</span>' +
-        '<span class="np-chip-name">' + comp + '</span>' + statusEl +
+        '<span class="np-chip-name">' + comp + optTag + '</span>' + statusEl +
       '</div>';
-    }).join('');
+    }
+    const npChips = requiredComponents.map(c => chip(c, false)).join('');
+    const npOptionalChips = optionalComponents.map(c => chip(c, true)).join('');
+    const othersHtml = others.length
+      ? others.map(o =>
+          '<div class="np-chip done"><span class="np-chip-icon">➕</span>' +
+          '<span class="np-chip-name">' + o.label + '</span>' +
+          '<a href="' + toDirectImg(o.url) + '" target="_blank" class="np-chip-status" onclick="event.stopPropagation();">✓</a></div>'
+        ).join('')
+      : '<div style="font-size:12px;color:var(--gray-400);">None added.</div>';
 
     const dropboxBtn = (job.dropbox && job.dropbox.indexOf('http') === 0)
       ? '<a href="' + job.dropbox + '" target="_blank" class="dropbox-link" onclick="event.stopPropagation();">📁 Dropbox folder</a>'
@@ -468,8 +504,14 @@ function renderInstList() {
       '</div>' +
       '<div class="detail-panel ' + (isOpen ? 'open' : '') + '">' +
         (dropboxBtn ? '<div style="margin-bottom:16px;">' + dropboxBtn + '</div>' : '') +
-        '<div class="detail-section-label">Nameplates &amp; license (' + npDone + '/' + npTotal + ')</div>' +
+        '<div class="detail-section-label">Required nameplates (' + npDone + '/' + npTotal + ')</div>' +
         '<div class="np-grid">' + npChips + '</div>' +
+        '<div class="detail-section-label">Optional (' + optDone + '/' + optionalComponents.length + ')</div>' +
+        '<div class="np-grid">' + npOptionalChips + '</div>' +
+        '<div class="detail-section-label">License software</div>' +
+        '<div class="np-grid">' + chip('License Software', false) + '</div>' +
+        '<div class="detail-section-label">Others (' + others.length + ')</div>' +
+        '<div class="np-grid">' + othersHtml + '</div>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
           '<div class="detail-section-label" style="margin-bottom:0;">Daily update log</div>' +
           (status !== 'completed' ? '<button class="btn btn-ghost btn-sm" onclick="markCompleted(\'' + job.id + '\');event.stopPropagation();">Mark as completed</button>' : '') +
@@ -503,7 +545,7 @@ function openCreateModal() {
   document.getElementById('new-client').value = '';
   document.getElementById('new-model').value  = '';
   document.getElementById('new-tech').value   = '';
-  document.getElementById('new-start').value  = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('new-start').valueAsDate = new Date();
   document.getElementById('create-modal').classList.add('open');
   setTimeout(() => document.getElementById('new-client').focus(), 100);
 }
@@ -514,10 +556,14 @@ function createJob() {
   const client = document.getElementById('new-client').value.trim();
   const model  = document.getElementById('new-model').value.trim();
   const tech   = document.getElementById('new-tech').value.trim();
-  const start  = document.getElementById('new-start').value.trim();
+  const startVal = document.getElementById('new-start').value;
 
   if (!client) { showToast('Customer name is required.'); document.getElementById('new-client').focus(); return; }
   if (!model)  { showToast('Machine model is required.'); document.getElementById('new-model').focus();  return; }
+  if (!startVal) { showToast('Start date is required.'); document.getElementById('new-start').focus(); return; }
+
+  // Convert the calendar picker's YYYY-MM-DD value into a clean display label
+  const start = new Date(startVal + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   isCreating = true;
   const btn = document.getElementById('btn-create');

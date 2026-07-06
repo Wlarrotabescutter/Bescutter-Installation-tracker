@@ -232,10 +232,31 @@
       </div>
     </div>
 
-    <!-- 05 · History -->
-    <div class="section" id="sec-history" style="display:none;">
+    <!-- 05 · Others (extra / duplicate components) -->
+    <div class="section" id="sec-others" style="display:none;">
       <div class="section-header">
         <span class="section-num">05</span>
+        <span class="section-title">Others</span>
+      </div>
+      <div class="section-body">
+        <div id="others-list"></div>
+        <div class="divider"></div>
+        <div class="field">
+          <label>Component name</label>
+          <input type="text" id="other-label" placeholder="e.g. Extra dust collector, spare sensor…">
+        </div>
+        <div class="field">
+          <label>Photo</label>
+          <input type="file" id="other-photo-input" accept="image/*" capture="environment">
+        </div>
+        <button class="btn btn-primary" id="btn-other-upload" style="width:100%;" onclick="submitOtherComponent()">📷 Add component</button>
+      </div>
+    </div>
+
+    <!-- 06 · History -->
+    <div class="section" id="sec-history" style="display:none;">
+      <div class="section-header">
+        <span class="section-num">06</span>
         <span class="section-title">Update history</span>
       </div>
       <div class="section-body">
@@ -258,15 +279,18 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxSRjjNj_cg2hgXSrgBAjjL
 
 const NAMEPLATE_ICONS = {
   'Machine': '🛠️', 'Laser Head': '🔦', 'Air Compressor': '💨',
-  'Chiller': '❄️', 'Regulator': '🎛️', 'Transformer': '⚡', 'License Software': '🔑'
+  'Chiller': '❄️', 'Voltage Regulator': '🎛️', 'Transformer': '⚡',
+  'Dust Collector': '🌀', 'Fan': '🌬️', 'License Software': '🔑'
 };
 
 let allJobs = [];
-let nameplateComponents = [];
+let requiredComponents = [];
+let optionalComponents = [];
 let selectedPhotos = [];
 let currentInstallId = null;
 let isSubmitting = false;
 let pendingNameplateComponent = null;
+let otherPhotoData = null;   // holds the compressed photo waiting for a label + submit
 
 function initPage() {
   document.getElementById('log-date').valueAsDate = new Date();
@@ -283,7 +307,8 @@ function fetchJobs(firstLoad) {
       document.getElementById('content').style.display = 'block';
       if (!data.ok) { showToast('Could not load jobs: ' + (data.error||'')); return; }
       allJobs = data.jobs || [];
-      nameplateComponents = data.nameplateComponents || ['Machine','Laser Head','Air Compressor','Chiller','Regulator','Transformer','License Software'];
+      requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Voltage Regulator','Transformer'];
+      optionalComponents = data.optionalNameplateComponents || ['Air Compressor','Dust Collector','Fan'];
       populateJobSelect();
     })
     .catch(() => {
@@ -303,11 +328,8 @@ function populateJobSelect() {
   active.forEach(job => {
     const opt = document.createElement('option');
     opt.value = job.id;
-    // Append start date + a short unique tag so jobs with the same client/model are distinguishable
-    const tag = job.createdAt ? '#' + job.createdAt.toString().slice(-4) : '';
-    opt.textContent = job.client + ' — ' + job.model
-      + (job.startDate ? ' · ' + job.startDate : '')
-      + (tag ? ' · ' + tag : '');
+    // Show ONLY the clean visible Job ID — no date, no internal tag
+    opt.textContent = job.jobId || job.sheetJobId || job.client + ' — ' + job.model;
     sel.appendChild(opt);
   });
   document.getElementById('no-jobs').style.display = active.length === 0 ? 'block' : 'none';
@@ -318,7 +340,7 @@ function loadInstall() {
   const id = document.getElementById('sel-install').value;
   if (!id) {
     document.getElementById('install-meta').style.display = 'none';
-    ['sec-log','sec-nameplates','sec-license','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
+    ['sec-log','sec-nameplates','sec-license','sec-others','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
     currentInstallId = null;
     return;
   }
@@ -337,35 +359,44 @@ function loadInstall() {
 
   renderNameplates(job);
   renderLicense(job);
+  renderOthers(job);
   renderHistory(job);
 
-  ['sec-log','sec-nameplates','sec-license','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
+  ['sec-log','sec-nameplates','sec-license','sec-others','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
   selectedPhotos = [];
   document.getElementById('photo-grid').innerHTML = '';
   document.getElementById('log-notes').value = '';
 }
 
-// ── Nameplates (everything except License Software) ──
+// ── Nameplates: required + optional components ──
 function renderNameplates(job) {
-  const comps = nameplateComponents.filter(c => c !== 'License Software');
   const nameplates = job.nameplates || {};
   const container = document.getElementById('nameplates-list');
-  const pending = comps.filter(c => !nameplates[c]);
-  document.getElementById('np-count').textContent = pending.length + ' pending';
 
-  if (pending.length === 0) {
+  const pendingRequired = requiredComponents.filter(c => !nameplates[c]);
+  const pendingOptional = optionalComponents.filter(c => !nameplates[c]);
+  const totalPending = pendingRequired.length + pendingOptional.length;
+  document.getElementById('np-count').textContent = totalPending + ' pending';
+
+  if (totalPending === 0) {
     container.innerHTML = '<div class="all-done">✓ All nameplates uploaded</div>';
     return;
   }
-  container.innerHTML = pending.map(comp => {
+
+  function taskRow(comp, isOptional) {
     const icon = NAMEPLATE_ICONS[comp] || '📄';
+    const optionalTag = isOptional ? '<span class="badge badge-count" style="margin-left:6px;font-size:9px;">Optional</span>' : '';
     return '<div class="task-row">' +
       '<div class="task-icon">' + icon + '</div>' +
-      '<div class="task-info"><div class="task-name">' + comp + '</div>' +
+      '<div class="task-info"><div class="task-name">' + comp + optionalTag + '</div>' +
       '<div class="task-status">Photo required</div></div>' +
       '<button class="task-btn" onclick="startNameplateUpload(\'' + comp + '\')">📷 Upload</button>' +
     '</div>';
-  }).join('');
+  }
+
+  container.innerHTML =
+    pendingRequired.map(c => taskRow(c, false)).join('') +
+    pendingOptional.map(c => taskRow(c, true)).join('');
 }
 
 // ── License Software (single task) ──
@@ -385,6 +416,23 @@ function renderLicense(job) {
     '<div class="task-status">Photo required</div></div>' +
     '<button class="task-btn" onclick="startNameplateUpload(\'License Software\')">📷 Upload</button>' +
   '</div>';
+}
+
+// ── Others: repeatable/duplicate components with a free-typed label ──
+function renderOthers(job) {
+  const entries = job.otherComponents || [];
+  const container = document.getElementById('others-list');
+  const listHtml = entries.length
+    ? entries.map(e =>
+        '<div class="task-row">' +
+          '<div class="task-icon">➕</div>' +
+          '<div class="task-info"><div class="task-name">' + e.label + '</div>' +
+          '<div class="task-status">' + e.date + '</div></div>' +
+          '<a href="' + toDirectImg(e.url) + '" target="_blank" class="task-done">✓ View</a>' +
+        '</div>'
+      ).join('')
+    : '';
+  container.innerHTML = listHtml + (entries.length ? '' : '<div class="task-status" style="padding:4px 0 12px;">No extra components added yet.</div>');
 }
 
 function startNameplateUpload(component) {
@@ -425,6 +473,52 @@ function handleNameplatePhoto(e) {
   pendingNameplateComponent = null;
 }
 
+// "Others" upload — technician types a label, picks a photo, and submits. Repeatable.
+function submitOtherComponent() {
+  if (!currentInstallId) { showToast('Please select a job first.'); return; }
+  const techName = document.getElementById('log-tech').value.trim();
+  if (!techName) { showToast('Please enter your name above first.'); document.getElementById('log-tech').focus(); return; }
+
+  const label = document.getElementById('other-label').value.trim();
+  if (!label) { showToast('Enter a name for the component.'); document.getElementById('other-label').focus(); return; }
+
+  const fileInput = document.getElementById('other-photo-input');
+  const file = fileInput.files[0];
+  if (!file) { showToast('Choose a photo first.'); return; }
+
+  localStorage.setItem('bc_last_tech', techName);
+  const btn = document.getElementById('btn-other-upload');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin"></span> Uploading…';
+
+  compressImage(file, 1400, 0.75).then(dataUrl => {
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'upload_other_component', jobId: currentInstallId,
+        label: label, photo: dataUrl, tech: techName, date: dateStr
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = '📷 Add component';
+      if (!data.ok) { showToast('Error: ' + (data.error || 'upload failed')); return; }
+      showToast('✓ ' + label + ' added.');
+      document.getElementById('other-label').value = '';
+      fileInput.value = '';
+      fetchAndRefreshCurrent();
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '📷 Add component';
+      showToast('Connection error — not uploaded. Try again.');
+    });
+  });
+}
+
 // Re-fetch and keep the current job open, refreshing the task lists
 function fetchAndRefreshCurrent() {
   fetch(API_URL)
@@ -433,7 +527,7 @@ function fetchAndRefreshCurrent() {
       if (!data.ok) return;
       allJobs = data.jobs || [];
       const job = allJobs.find(j => j.id === currentInstallId);
-      if (job) { renderNameplates(job); renderLicense(job); renderHistory(job); }
+      if (job) { renderNameplates(job); renderLicense(job); renderOthers(job); renderHistory(job); }
     })
     .catch(() => {});
 }
