@@ -193,7 +193,7 @@
             <div class="upload-icon">📷</div>
             <div style="font-size:13px;font-weight:600;color:var(--gray-600);">Add photos</div>
             <div style="font-size:11px;color:var(--gray-400);margin-top:2px;">Tap to open camera or select files — max 6</div>
-            <input type="file" id="photo-input" accept="image/*" multiple capture="environment" onchange="handlePhotos(event)">
+            <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotos(event)">
           </div>
           <div class="photo-grid" id="photo-grid"></div>
         </div>
@@ -217,7 +217,7 @@
       </div>
       <div class="section-body">
         <div id="nameplates-list"></div>
-        <input type="file" id="np-input" class="task-input" accept="image/*" capture="environment" onchange="handleNameplatePhoto(event)">
+        <input type="file" id="np-input" class="task-input" accept="image/*" onchange="handleNameplatePhoto(event)">
       </div>
     </div>
 
@@ -248,7 +248,7 @@
         </div>
         <div class="field">
           <label>Photo</label>
-          <input type="file" id="other-photo-input" accept="image/*" capture="environment">
+          <input type="file" id="other-photo-input" accept="image/*">
         </div>
         <button class="btn btn-primary" id="btn-other-upload" style="width:100%;" onclick="submitOtherComponent()">📷 Add component</button>
       </div>
