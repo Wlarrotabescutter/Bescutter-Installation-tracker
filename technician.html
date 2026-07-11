@@ -132,7 +132,7 @@
       <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
       <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">中文</button>
     </div>
-    <div class="staff-badge" data-i18n="staffBadge">Technician</div>
+    <div class="staff-badge" data-i18n="staffBadge">Engineer</div>
   </div>
 </header>
 
@@ -209,6 +209,10 @@
         <div class="field">
           <label data-i18n="whatDidYouDo">What did you do today?</label>
           <textarea id="log-notes" data-i18n-placeholder="notesPlaceholder" placeholder="Describe the activities completed today…"></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+            <span style="font-size:11px;color:var(--gray-400);" id="improve-hint" data-i18n="improveHint">AI will improve grammar, structure and engineering tone using APA style.</span>
+            <button id="btn-improve" onclick="improveNotes()" style="flex-shrink:0;margin-left:10px;padding:6px 14px;border-radius:8px;border:1px solid var(--blue-border);background:var(--blue-light);color:var(--blue);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;white-space:nowrap;transition:all 0.15s;" data-i18n="improveBtn">✦ Improve writing</button>
+          </div>
         </div>
         <div class="btn-row">
           <button class="btn btn-danger" id="btn-issue" onclick="submitUpdate('issue')" data-i18n="reportIssue">⚠ Report issue</button>
@@ -286,10 +290,35 @@
       </div>
     </div>
 
-    <!-- 07 · History -->
-    <div class="section" id="sec-history" style="display:none;">
+    <!-- 07 · Damaged / marked components -->
+    <div class="section" id="sec-damaged" style="display:none;">
       <div class="section-header">
         <span class="section-num">07</span>
+        <span class="section-title" data-i18n="secDamaged">Damaged components</span>
+      </div>
+      <div class="section-body">
+        <div id="damaged-list"></div>
+        <div class="divider"></div>
+        <div class="field">
+          <label data-i18n="componentName">Component name</label>
+          <input type="text" id="damaged-component" data-i18n-placeholder="damagedComponentPlaceholder" placeholder="e.g. Chiller, Laser Head…">
+        </div>
+        <div class="field">
+          <label data-i18n="damageDescription">Description of damage</label>
+          <textarea id="damaged-description" data-i18n-placeholder="damagedDescPlaceholder" placeholder="Describe the damage or marks found…" style="min-height:72px;"></textarea>
+        </div>
+        <div class="field">
+          <label data-i18n="photo">Photo</label>
+          <input type="file" id="damaged-photo-input" accept="image/*">
+        </div>
+        <button class="btn btn-danger" id="btn-damaged-upload" style="width:100%;flex:none;" onclick="submitDamagedComponent()" data-i18n="reportDamaged">📸 Report damaged component</button>
+      </div>
+    </div>
+
+    <!-- 08 · History -->
+    <div class="section" id="sec-history" style="display:none;">
+      <div class="section-header">
+        <span class="section-num">08</span>
         <span class="section-title" data-i18n="secHistory">Update history</span>
       </div>
       <div class="section-body">
@@ -323,7 +352,7 @@ const NAMEPLATE_ICONS = {
 // stored date format vary by language would silently create duplicate columns.
 const I18N = {
   en: {
-    brandSub: 'Installation Tracker', staffBadge: 'Technician',
+    brandSub: 'Installation Tracker', staffBadge: 'Engineer',
     pageTitle: "Log your progress", pageSubtitle: "Select your job and record today's work.",
     loadingJobs: 'Loading jobs…', secSelect: 'Select installation', activeJob: 'Active job',
     selectJob: '— Select a job —', noJobsTitle: 'No jobs available yet.',
@@ -334,12 +363,18 @@ const I18N = {
     addPhotosHint: 'Tap to take a photo or choose from your gallery — max 6',
     whatDidYouDo: 'What did you do today?', notesPlaceholder: 'Describe the activities completed today…',
     reportIssue: '⚠ Report issue', submitUpdate: 'Submit update', saving: 'Saving…',
+    improveBtn: '✦ Improve writing', improving: 'Improving…', improveHint: 'AI will improve grammar, structure and engineering tone using APA style.',
     secNameplates: 'Upload nameplates', secLicense: 'License software', secOthers: 'Others',
     componentName: 'Component name', componentPlaceholder: 'e.g. Extra dust collector, spare sensor…',
     photo: 'Photo', addComponent: '📷 Add component', uploading: 'Uploading…',
     secParameters: 'Upload parameter files and backup', files: 'Files', addFiles: 'Add files',
     addFilesHint: 'Config files, backups, .zip — any file type, multiple allowed',
     uploadToDropbox: '⬆ Upload to Dropbox', secHistory: 'Update history',
+    secDamaged: 'Damaged components', damageDescription: 'Description of damage',
+    damagedComponentPlaceholder: 'e.g. Chiller, Laser Head…',
+    damagedDescPlaceholder: 'Describe the damage or marks found…',
+    reportDamaged: '📸 Report damaged component',
+    noDamagedYet: 'No damaged components reported yet.',
     footerText: 'BesCutter Internal Tools — For staff use only',
     photoRequired: 'Photo required', allNameplatesDone: '✓ All nameplates uploaded',
     optional: 'Optional', pending: 'pending', done: 'Done', noOthersYet: 'No extra components added yet.',
@@ -362,7 +397,7 @@ const I18N = {
     toastFilesUploaded: ' file(s) uploaded.', errPhotoUploadFailed: 'Photo upload failed'
   },
   zh: {
-    brandSub: '安装跟踪器', staffBadge: '技术员',
+    brandSub: '安装跟踪器', staffBadge: '工程师',
     pageTitle: '记录您的进度', pageSubtitle: '选择您的工作并记录今天的工作内容。',
     loadingJobs: '正在加载工作…', secSelect: '选择安装项目', activeJob: '当前工作',
     selectJob: '— 请选择工作 —', noJobsTitle: '暂无可用工作。',
@@ -373,12 +408,18 @@ const I18N = {
     addPhotosHint: '点击拍照或从相册选择 — 最多6张',
     whatDidYouDo: '您今天做了什么？', notesPlaceholder: '描述今天完成的工作内容…',
     reportIssue: '⚠ 报告问题', submitUpdate: '提交更新', saving: '保存中…',
+    improveBtn: '✦ 改善写作', improving: '改善中…', improveHint: 'AI将按照APA格式改善语法、结构和工程表达。',
     secNameplates: '上传铭牌', secLicense: '许可软件', secOthers: '其他',
     componentName: '部件名称', componentPlaceholder: '例如：备用除尘器，备用传感器…',
     photo: '照片', addComponent: '📷 添加部件', uploading: '上传中…',
     secParameters: '上传参数文件和备份', files: '文件', addFiles: '添加文件',
     addFilesHint: '配置文件、备份、.zip — 任何文件类型，可多选',
     uploadToDropbox: '⬆ 上传到 Dropbox', secHistory: '更新历史',
+    secDamaged: '损坏的部件', damageDescription: '损坏描述',
+    damagedComponentPlaceholder: '例如：冷水机，激光头…',
+    damagedDescPlaceholder: '描述发现的损坏或痕迹…',
+    reportDamaged: '📸 报告损坏部件',
+    noDamagedYet: '尚未报告损坏部件。',
     footerText: 'BesCutter 内部工具 — 仅供员工使用',
     photoRequired: '需要照片', allNameplatesDone: '✓ 所有铭牌均已上传',
     optional: '可选', pending: '待处理', done: '已完成', noOthersYet: '尚未添加额外部件。',
@@ -422,6 +463,8 @@ function applyStaticTranslations() {
 
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
+    // Skip buttons that are in a loading state — don't overwrite the spinner
+    if (el.id === 'btn-improve' && el.disabled) return;
     el.textContent = t(key);
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
@@ -437,7 +480,7 @@ function refreshDynamicUI() {
     const job = allJobs.find(j => j.id === currentInstallId);
     if (job) {
       renderNameplates(job); renderLicense(job); renderOthers(job);
-      renderParameterFiles(job); renderHistory(job);
+      renderParameterFiles(job); renderDamagedComponents(job); renderHistory(job);
     }
   }
 }
@@ -504,7 +547,7 @@ function loadInstall() {
   const id = document.getElementById('sel-install').value;
   if (!id) {
     document.getElementById('install-meta').style.display = 'none';
-    ['sec-log','sec-nameplates','sec-license','sec-others','sec-parameters','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
+    ['sec-log','sec-nameplates','sec-license','sec-others','sec-parameters','sec-damaged','sec-history'].forEach(i => document.getElementById(i).style.display = 'none');
     currentInstallId = null;
     return;
   }
@@ -525,9 +568,10 @@ function loadInstall() {
   renderLicense(job);
   renderOthers(job);
   renderParameterFiles(job);
+  renderDamagedComponents(job);
   renderHistory(job);
 
-  ['sec-log','sec-nameplates','sec-license','sec-others','sec-parameters','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
+  ['sec-log','sec-nameplates','sec-license','sec-others','sec-parameters','sec-damaged','sec-history'].forEach(i => document.getElementById(i).style.display = 'block');
   selectedPhotos = [];
   document.getElementById('photo-grid').innerHTML = '';
   document.getElementById('log-notes').value = '';
@@ -766,6 +810,73 @@ function submitOtherComponent() {
   });
 }
 
+// ── Damaged / marked components ──
+function renderDamagedComponents(job) {
+  const entries = job.damagedComponents || [];
+  const container = document.getElementById('damaged-list');
+  container.innerHTML = entries.length
+    ? entries.map(e =>
+        '<div class="task-row" style="align-items:flex-start;padding:12px 0;">' +
+          '<div class="task-icon" style="background:var(--red-light);color:var(--red);">⚠️</div>' +
+          '<div class="task-info">' +
+            '<div class="task-name">' + e.component + '</div>' +
+            (e.description ? '<div class="task-status" style="white-space:normal;line-height:1.4;">' + e.description + '</div>' : '') +
+            '<div class="task-status">' + e.date + ' · ' + e.tech + '</div>' +
+          '</div>' +
+          '<a href="' + toDirectImg(e.url) + '" target="_blank" class="task-done">' + t('photoView') + '</a>' +
+        '</div>'
+      ).join('')
+    : '<div class="task-status" style="padding:4px 0 12px;">' + t('noDamagedYet') + '</div>';
+}
+
+function submitDamagedComponent() {
+  if (!currentInstallId) { showToast(t('errSelectJobFirst')); return; }
+  const techName = document.getElementById('log-tech').value.trim();
+  if (!techName) { showToast(t('errNameFirst')); document.getElementById('log-tech').focus(); return; }
+
+  const component = document.getElementById('damaged-component').value.trim();
+  if (!component) { showToast(t('errComponentName')); document.getElementById('damaged-component').focus(); return; }
+
+  const fileInput = document.getElementById('damaged-photo-input');
+  const file = fileInput.files[0];
+  if (!file) { showToast(t('errChoosePhoto')); return; }
+
+  const description = document.getElementById('damaged-description').value.trim();
+  localStorage.setItem('bc_last_tech', techName);
+
+  const btn = document.getElementById('btn-damaged-upload');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin"></span> ' + t('uploading');
+
+  compressImage(file, 1400, 0.75).then(dataUrl => {
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'upload_damaged_component', jobId: currentInstallId,
+        component, description, photo: dataUrl, tech: techName, date: dateStr
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = t('reportDamaged');
+      if (!data.ok) { showToast(t('errGeneric') + (data.error || t('errUploadFailed'))); return; }
+      showToast('✓ ' + component + t('toastComponentAdded'));
+      document.getElementById('damaged-component').value = '';
+      document.getElementById('damaged-description').value = '';
+      fileInput.value = '';
+      fetchAndRefreshCurrent();
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = t('reportDamaged');
+      showToast(t('errNotUploaded'));
+    });
+  });
+}
+
 // Re-fetch and keep the current job open, refreshing the task lists
 function fetchAndRefreshCurrent() {
   fetch(API_URL)
@@ -774,7 +885,7 @@ function fetchAndRefreshCurrent() {
       if (!data.ok) return;
       allJobs = data.jobs || [];
       const job = allJobs.find(j => j.id === currentInstallId);
-      if (job) { renderNameplates(job); renderLicense(job); renderOthers(job); renderParameterFiles(job); renderHistory(job); }
+      if (job) { renderNameplates(job); renderLicense(job); renderOthers(job); renderParameterFiles(job); renderDamagedComponents(job); renderHistory(job); }
     })
     .catch(() => {});
 }
@@ -889,6 +1000,66 @@ function setSubmitting(state) {
   document.getElementById('btn-submit').disabled = state;
   document.getElementById('btn-issue').disabled = state;
   document.getElementById('btn-submit').innerHTML = state ? '<span class="loading-spin"></span> ' + t('saving') : t('submitUpdate');
+}
+
+// ── AI writing improvement ────────────────────────────────────────────────
+// Calls the Claude API to improve the engineer's note: fixes grammar,
+// structures the text professionally, applies APA engineering style, and
+// expands only where needed — without inventing technical data.
+async function improveNotes() {
+  const textarea = document.getElementById('log-notes');
+  const original = textarea.value.trim();
+  if (!original) { showToast(t('errDescribe')); textarea.focus(); return; }
+
+  const btn = document.getElementById('btn-improve');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spin" style="border-color:rgba(37,99,235,0.3);border-top-color:var(--blue);"></span> ' + t('improving');
+
+  const lang = currentLang === 'zh' ? 'Chinese (Simplified)' : 'English';
+
+  const systemPrompt = `You are an expert technical writing assistant for BesCutter, a laser cutter company.
+Your task is to improve field engineers' installation progress notes so they read professionally and clearly.
+
+Rules:
+- Keep the language the same as the input (${lang}).
+- Apply APA style formatting principles to the prose: clear structure, active voice where appropriate, precise technical language.
+- Fix grammar, spelling, punctuation, and sentence structure.
+- Improve the engineering tone: replace informal language with professional terminology.
+- If the note is very short or telegraphic, expand it slightly to be more descriptive — but ONLY using information that is already implied or stated. Never invent specific measurements, part numbers, values, or technical data that was not mentioned.
+- Keep the core meaning and all mentioned facts exactly the same.
+- Return ONLY the improved text, with no preamble, no explanation, and no quotation marks.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: original }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err.error && err.error.message) || ('API error ' + res.status));
+    }
+
+    const data = await res.json();
+    const improved = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+
+    if (improved) {
+      textarea.value = improved;
+      textarea.style.borderColor = 'var(--blue)';
+      setTimeout(() => { textarea.style.borderColor = ''; }, 2000);
+    }
+  } catch (err) {
+    showToast('Could not improve text: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = t('improveBtn');
+  }
 }
 
 function showToast(msg) {
