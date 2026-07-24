@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BesCutter · Installation Tracker</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,9 +60,14 @@
   .badge-active { background: var(--blue-light);  color: var(--blue);   border: 1px solid var(--blue-border); }
   .badge-issue  { background: var(--red-light);   color: var(--red);    border: 1px solid var(--red-border); }
   .badge-count  { background: var(--gray-100);    color: var(--gray-500); border: 1px solid var(--gray-200); }
-  .upload-zone { border: 1.5px dashed var(--gray-300); border-radius: 10px; padding: 22px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-  .upload-zone:hover { border-color: var(--red); background: var(--red-light); }
-  .upload-zone input { display: none; }
+  .upload-zone { position: relative; border: 1.5px dashed var(--gray-300); border-radius: 10px; overflow: hidden; transition: border-color 0.15s, background 0.15s; }
+  /* Android-safe file trigger: the whole zone is a <label for="..."> so the native tap
+     opens the picker directly — programmatic input.click() from a div's onclick silently
+     fails on many Android browsers (Chrome, Samsung Internet). */
+  .upload-label { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 22px; margin-bottom: 0; cursor: pointer; width: 100%; -webkit-tap-highlight-color: rgba(192,57,43,0.08); }
+  .upload-label:active { background: var(--red-light); }
+  /* Visually hidden but still label-activatable — display:none breaks label-for on some mobile browsers */
+  .upload-zone input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
   .upload-icon { font-size: 26px; margin-bottom: 6px; }
   .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .photo-thumb { width: 68px; height: 68px; border-radius: 8px; object-fit: cover; border: 1px solid var(--gray-200); }
@@ -116,7 +121,12 @@
   .task-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .task-done { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--green); font-weight: 600; text-decoration: none; }
   .all-done { text-align: center; padding: 20px; color: var(--green); font-size: 13px; font-weight: 500; }
-  .task-input { display: none; }
+  /* Hidden-but-activatable input for the shared nameplate picker (label-for pattern).
+     display:none would break label triggering on some mobile browsers. */
+  .task-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  label.task-btn { display: inline-block; margin-bottom: 0; text-align: center; -webkit-tap-highlight-color: transparent; }
+  /* Prevent mobile browsers from auto-zooming on input focus now that pinch-zoom is allowed */
+  @media (pointer: coarse) { input[type=text], input[type=date], select, textarea { font-size: 16px; } }
 </style>
 </head>
 <body>
@@ -198,10 +208,12 @@
         </div>
         <div class="field">
           <label data-i18n="photosLabel">Photos of today's work</label>
-          <div class="upload-zone" onclick="document.getElementById('photo-input').click()">
-            <div class="upload-icon">📷</div>
-            <div style="font-size:13px;font-weight:600;color:var(--gray-600);" data-i18n="addPhotos">Add photos</div>
-            <div style="font-size:11px;color:var(--gray-400);margin-top:2px;" data-i18n="addPhotosHint">Tap to take a photo or choose from your gallery — max 6</div>
+          <div class="upload-zone">
+            <label class="upload-label" for="photo-input">
+              <div class="upload-icon">📷</div>
+              <div style="font-size:13px;font-weight:600;color:var(--gray-600);" data-i18n="addPhotos">Add photos</div>
+              <div style="font-size:11px;color:var(--gray-400);margin-top:2px;" data-i18n="addPhotosHint">Tap to take a photo or choose from your gallery — max 6</div>
+            </label>
             <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotos(event)">
           </div>
           <div class="photo-grid" id="photo-grid"></div>
@@ -230,6 +242,9 @@
       </div>
       <div class="section-body">
         <div id="nameplates-list"></div>
+        <!-- Single shared file input for all nameplate components. Each "Upload" button in
+             the list is a <label for="np-input">, so the tap opens the picker natively —
+             programmatic input.click() is unreliable on many Android browsers. -->
         <input type="file" id="np-input" class="task-input" accept="image/*" onchange="handleNameplatePhoto(event)">
       </div>
     </div>
@@ -278,10 +293,12 @@
         <div class="divider"></div>
         <div class="field">
           <label data-i18n="files">Files</label>
-          <div class="upload-zone" onclick="document.getElementById('param-file-input').click()">
-            <div class="upload-icon">🗂️</div>
-            <div style="font-size:13px;font-weight:600;color:var(--gray-600);" data-i18n="addFiles">Add files</div>
-            <div style="font-size:11px;color:var(--gray-400);margin-top:2px;" data-i18n="addFilesHint">Config files, backups, .zip — any file type, multiple allowed</div>
+          <div class="upload-zone">
+            <label class="upload-label" for="param-file-input">
+              <div class="upload-icon">🗂️</div>
+              <div style="font-size:13px;font-weight:600;color:var(--gray-600);" data-i18n="addFiles">Add files</div>
+              <div style="font-size:11px;color:var(--gray-400);margin-top:2px;" data-i18n="addFilesHint">Config files, backups, .zip — any file type, multiple allowed</div>
+            </label>
             <input type="file" id="param-file-input" multiple onchange="handleParamFiles(event)">
           </div>
           <div id="param-file-grid" style="margin-top:10px;"></div>
@@ -599,7 +616,7 @@ function renderNameplates(job) {
       '<div class="task-icon">' + icon + '</div>' +
       '<div class="task-info"><div class="task-name">' + comp + optionalTag + '</div>' +
       '<div class="task-status">' + t('photoRequired') + '</div></div>' +
-      '<button class="task-btn" onclick="startNameplateUpload(\'' + comp + '\')">' + t('upload') + '</button>' +
+      '<label class="task-btn" for="np-input" onclick="return prepareNameplateUpload(event, \'' + comp + '\')">' + t('upload') + '</label>' +
     '</div>';
   }
 
@@ -622,7 +639,7 @@ function renderLicense(job) {
     '<div class="task-icon">🔑</div>' +
     '<div class="task-info"><div class="task-name">' + t('licenseTaskName') + '</div>' +
     '<div class="task-status">' + t('photoRequired') + '</div></div>' +
-    '<button class="task-btn" onclick="startNameplateUpload(\'License Software\')">' + t('upload') + '</button>' +
+    '<label class="task-btn" for="np-input" onclick="return prepareNameplateUpload(event, \'License Software\')">' + t('upload') + '</label>' +
   '</div>';
 }
 
@@ -667,6 +684,7 @@ function handleParamFiles(e) {
   if (selectedParamFiles.length + files.length > 10) { showToast(t('errMaxFiles')); return; }
   files.forEach(file => {
     const reader = new FileReader();
+    reader.onerror = () => showToast(t('errGeneric') + file.name);
     reader.onload = ev => {
       selectedParamFiles.push({ name: file.name, dataUrl: ev.target.result });
       renderParamFileGrid();
@@ -726,12 +744,17 @@ function submitParameterFiles() {
   });
 }
 
-function startNameplateUpload(component) {
-  if (!currentInstallId) { showToast(t('errSelectJobFirst')); return; }
+// Runs from the onclick of the <label for="np-input"> Upload buttons. If validation
+// fails it cancels the label's default action (opening the file picker); otherwise it
+// records which component the photo belongs to and lets the native picker open.
+// This replaces the old input.click() approach, which silently does nothing on many
+// Android browsers (Chrome, Samsung Internet) when the input is hidden.
+function prepareNameplateUpload(event, component) {
+  if (!currentInstallId) { event.preventDefault(); showToast(t('errSelectJobFirst')); return false; }
   const techName = document.getElementById('log-tech').value.trim();
-  if (!techName) { showToast(t('errNameFirst')); document.getElementById('log-tech').focus(); return; }
+  if (!techName) { event.preventDefault(); showToast(t('errNameFirst')); document.getElementById('log-tech').focus(); return false; }
   pendingNameplateComponent = component;
-  document.getElementById('np-input').click();
+  return true;
 }
 
 function handleNameplatePhoto(e) {
@@ -743,6 +766,7 @@ function handleNameplatePhoto(e) {
 
   showToast(t('uploading'));
   compressImage(file, 1400, 0.75).then(dataUrl => {
+    if (!dataUrl) { showToast(t('errPhotoUploadFailed')); return; }
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     fetch(API_URL, {
       method: 'POST',
@@ -783,6 +807,12 @@ function submitOtherComponent() {
   btn.innerHTML = '<span class="loading-spin"></span> ' + t('uploading');
 
   compressImage(file, 1400, 0.75).then(dataUrl => {
+    if (!dataUrl) {
+      btn.disabled = false;
+      btn.innerHTML = t('addComponent');
+      showToast(t('errPhotoUploadFailed'));
+      return;
+    }
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     fetch(API_URL, {
       method: 'POST',
@@ -849,6 +879,12 @@ function submitDamagedComponent() {
   btn.innerHTML = '<span class="loading-spin"></span> ' + t('uploading');
 
   compressImage(file, 1400, 0.75).then(dataUrl => {
+    if (!dataUrl) {
+      btn.disabled = false;
+      btn.innerHTML = t('reportDamaged');
+      showToast(t('errPhotoUploadFailed'));
+      return;
+    }
     const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     fetch(API_URL, {
       method: 'POST',
@@ -924,27 +960,77 @@ function closeLightbox() { document.getElementById('lightbox').classList.remove(
 function handlePhotos(e) {
   const files = Array.from(e.target.files);
   if (selectedPhotos.length + files.length > 6) { showToast(t('errMaxPhotos')); return; }
-  files.forEach(file => { compressImage(file, 1400, 0.75).then(d => { selectedPhotos.push(d); renderPhotoGrid(); }); });
+  files.forEach(file => {
+    compressImage(file, 1400, 0.75).then(d => {
+      if (!d) { showToast(t('errPhotoUploadFailed')); return; }
+      selectedPhotos.push(d);
+      renderPhotoGrid();
+    });
+  });
   e.target.value = '';
 }
 
+// Compress a photo client-side before upload.
+// Hardened for Android: some Android browsers (Chrome, Samsung Internet, WebViews)
+// fail silently in the FileReader → Image → Canvas pipeline with very large photos
+// (out-of-memory) or unusual formats — the old version would then hang forever with
+// the spinner stuck. This version:
+//   1. handles onerror on both FileReader and Image,
+//   2. wraps all canvas work in try/catch,
+//   3. has a 15s timeout so the promise ALWAYS settles,
+//   4. sanity-checks the output and falls back to sending the ORIGINAL photo
+//      instead of losing it when compression fails.
 function compressImage(file, maxDim, quality) {
   return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > height && width > maxDim) { height = height * maxDim / width; width = maxDim; }
-        else if (height > maxDim) { width = width * maxDim / height; height = maxDim; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = e.target.result;
+    let settled = false;
+    let originalDataUrl = null;
+    const finish = v => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); };
+
+    // Last resort: send the original photo uncompressed rather than failing.
+    const useOriginal = () => {
+      if (settled) return;
+      if (originalDataUrl) { finish(originalDataUrl); return; }
+      const fr = new FileReader();
+      fr.onload = e => finish(e.target.result);
+      fr.onerror = () => finish(null);
+      fr.readAsDataURL(file);
     };
-    reader.readAsDataURL(file);
+
+    const timer = setTimeout(useOriginal, 15000);
+
+    try {
+      const reader = new FileReader();
+      reader.onerror = useOriginal;
+      reader.onload = e => {
+        originalDataUrl = e.target.result;
+        const img = new Image();
+        img.onerror = useOriginal;
+        img.onload = () => {
+          try {
+            let width = img.naturalWidth || img.width;
+            let height = img.naturalHeight || img.height;
+            if (!width || !height) { useOriginal(); return; }
+            if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
+            else if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { useOriginal(); return; }
+            ctx.drawImage(img, 0, 0, width, height);
+            const out = canvas.toDataURL('image/jpeg', quality);
+            // A valid compressed JPEG should be a non-trivial data URL.
+            if (out && out.indexOf('data:image/jpeg') === 0 && out.length > 2000) finish(out);
+            else useOriginal();
+          } catch (err) {
+            useOriginal();
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      useOriginal();
+    }
   });
 }
 
