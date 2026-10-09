@@ -325,8 +325,9 @@
           <textarea id="damaged-description" data-i18n-placeholder="damagedDescPlaceholder" placeholder="Describe the damage or marks found…" style="min-height:72px;"></textarea>
         </div>
         <div class="field">
-          <label data-i18n="photo">Photo</label>
-          <input type="file" id="damaged-photo-input" accept="image/*">
+          <label data-i18n="damagedPhotoLabel">Photos (up to 10)</label>
+          <input type="file" id="damaged-photo-input" accept="image/*" multiple onchange="handleDamagedPhotos(event)">
+          <div class="photo-grid" id="damaged-photo-grid"></div>
         </div>
         <button class="btn btn-danger" id="btn-damaged-upload" style="width:100%;flex:none;" onclick="submitDamagedComponent()" data-i18n="reportDamaged">📸 Report damaged component</button>
       </div>
@@ -358,7 +359,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxSRjjNj_cg2hgXSrgBAjjL
 
 const NAMEPLATE_ICONS = {
   'Machine': '🛠️', 'Laser Head': '🔦', 'Air Compressor': '💨',
-  'Chiller': '❄️', 'Voltage Regulator': '🎛️', 'Transformer': '⚡',
+  'Chiller': '❄️', 'Transformer': '⚡', 'Laser Source': '🔆',
   'Dust Collector': '🌀', 'Fan': '🌬️', 'License Software': '🔑'
 };
 
@@ -411,7 +412,9 @@ const I18N = {
     errChoosePhoto: 'Choose a photo first.', errUploadFailed: 'upload failed',
     toastComponentAdded: ' added.', errNotUploaded: 'Connection error — not uploaded. Try again.',
     errMaxFiles: 'Maximum 10 files per upload.', errChooseFile: 'Choose at least one file first.',
-    toastFilesUploaded: ' file(s) uploaded.', errPhotoUploadFailed: 'Photo upload failed'
+    toastFilesUploaded: ' file(s) uploaded.', errPhotoUploadFailed: 'Photo upload failed',
+    damagedPhotoLabel: 'Photos (up to 10)', errMaxDamagedPhotos: 'Maximum 10 photos allowed.',
+    errChooseDamagedPhoto: 'Choose at least one photo first.'
   },
   zh: {
     brandSub: '安装跟踪器', staffBadge: '工程师',
@@ -456,7 +459,9 @@ const I18N = {
     errChoosePhoto: '请先选择一张照片。', errUploadFailed: '上传失败',
     toastComponentAdded: ' 已添加。', errNotUploaded: '连接错误 — 未上传，请重试。',
     errMaxFiles: '每次最多上传10个文件。', errChooseFile: '请至少选择一个文件。',
-    toastFilesUploaded: ' 个文件已上传。', errPhotoUploadFailed: '照片上传失败'
+    toastFilesUploaded: ' 个文件已上传。', errPhotoUploadFailed: '照片上传失败',
+    damagedPhotoLabel: '照片（最多10张）', errMaxDamagedPhotos: '最多允许10张照片。',
+    errChooseDamagedPhoto: '请先选择至少一张照片。'
   }
 };
 
@@ -526,7 +531,7 @@ function fetchJobs(firstLoad) {
       document.getElementById('content').style.display = 'block';
       if (!data.ok) { showToast(t('errCouldNotLoad') + (data.error||'')); return; }
       allJobs = data.jobs || [];
-      requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Voltage Regulator','Transformer'];
+      requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Transformer','Laser Source'];
       optionalComponents = data.optionalNameplateComponents || ['Air Compressor','Dust Collector','Fan'];
       populateTechnicianDatalist(data.technicians || []);
       populateJobSelect();
@@ -592,6 +597,8 @@ function loadInstall() {
   selectedPhotos = [];
   document.getElementById('photo-grid').innerHTML = '';
   document.getElementById('log-notes').value = '';
+  selectedDamagedPhotos = [];
+  document.getElementById('damaged-photo-grid').innerHTML = '';
 }
 
 // ── Nameplates: required + optional components ──
@@ -662,6 +669,7 @@ function renderOthers(job) {
 
 // ── Parameter files & backup: repeatable, any file type (not just photos) ──
 let selectedParamFiles = [];   // { name, dataUrl }
+let selectedDamagedPhotos = [];   // dataUrl[] — up to 10
 
 function renderParameterFiles(job) {
   const entries = job.parameterFiles || [];
@@ -845,19 +853,47 @@ function renderDamagedComponents(job) {
   const entries = job.damagedComponents || [];
   const container = document.getElementById('damaged-list');
   container.innerHTML = entries.length
-    ? entries.map(e =>
-        '<div class="task-row" style="align-items:flex-start;padding:12px 0;">' +
+    ? entries.map(e => {
+        const urls = (e.urls && e.urls.length) ? e.urls : (e.url ? [e.url] : []);
+        const links = urls.length > 1
+          ? '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;">' +
+              urls.map((u, i) => '<a href="' + toDirectImg(u) + '" target="_blank" class="task-done">' + (i + 1) + '</a>').join('') +
+            '</div>'
+          : '<a href="' + toDirectImg(urls[0] || '') + '" target="_blank" class="task-done">' + t('photoView') + '</a>';
+        return '<div class="task-row" style="align-items:flex-start;padding:12px 0;">' +
           '<div class="task-icon" style="background:var(--red-light);color:var(--red);">⚠️</div>' +
           '<div class="task-info">' +
             '<div class="task-name">' + e.component + '</div>' +
             (e.description ? '<div class="task-status" style="white-space:normal;line-height:1.4;">' + e.description + '</div>' : '') +
             '<div class="task-status">' + e.date + ' · ' + e.tech + '</div>' +
           '</div>' +
-          '<a href="' + toDirectImg(e.url) + '" target="_blank" class="task-done">' + t('photoView') + '</a>' +
-        '</div>'
-      ).join('')
+          links +
+        '</div>';
+      }).join('')
     : '<div class="task-status" style="padding:4px 0 12px;">' + t('noDamagedYet') + '</div>';
 }
+
+function handleDamagedPhotos(e) {
+  const files = Array.from(e.target.files);
+  if (selectedDamagedPhotos.length + files.length > 10) { showToast(t('errMaxDamagedPhotos')); e.target.value = ''; return; }
+  files.forEach(file => {
+    compressImage(file, 1400, 0.75).then(d => {
+      if (!d) { showToast(t('errPhotoUploadFailed')); return; }
+      selectedDamagedPhotos.push(d);
+      renderDamagedPhotoGrid();
+    });
+  });
+  e.target.value = '';
+}
+
+function renderDamagedPhotoGrid() {
+  document.getElementById('damaged-photo-grid').innerHTML = selectedDamagedPhotos.map((src, i) =>
+    '<div class="photo-thumb-wrap"><img src="' + src + '" class="photo-thumb" alt="Photo ' + (i+1) + '">' +
+    '<button class="photo-remove" onclick="removeDamagedPhoto(' + i + ')" aria-label="Remove">×</button></div>'
+  ).join('');
+}
+
+function removeDamagedPhoto(i) { selectedDamagedPhotos.splice(i, 1); renderDamagedPhotoGrid(); }
 
 function submitDamagedComponent() {
   if (!currentInstallId) { showToast(t('errSelectJobFirst')); return; }
@@ -867,9 +903,7 @@ function submitDamagedComponent() {
   const component = document.getElementById('damaged-component').value.trim();
   if (!component) { showToast(t('errComponentName')); document.getElementById('damaged-component').focus(); return; }
 
-  const fileInput = document.getElementById('damaged-photo-input');
-  const file = fileInput.files[0];
-  if (!file) { showToast(t('errChoosePhoto')); return; }
+  if (!selectedDamagedPhotos.length) { showToast(t('errChooseDamagedPhoto')); return; }
 
   const description = document.getElementById('damaged-description').value.trim();
   localStorage.setItem('bc_last_tech', techName);
@@ -878,38 +912,31 @@ function submitDamagedComponent() {
   btn.disabled = true;
   btn.innerHTML = '<span class="loading-spin"></span> ' + t('uploading');
 
-  compressImage(file, 1400, 0.75).then(dataUrl => {
-    if (!dataUrl) {
-      btn.disabled = false;
-      btn.innerHTML = t('reportDamaged');
-      showToast(t('errPhotoUploadFailed'));
-      return;
-    }
-    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'upload_damaged_component', jobId: currentInstallId,
-        component, description, photo: dataUrl, tech: techName, date: dateStr
-      })
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'upload_damaged_component', jobId: currentInstallId,
+      component, description, photos: selectedDamagedPhotos, tech: techName, date: dateStr
     })
-    .then(r => r.json())
-    .then(data => {
-      btn.disabled = false;
-      btn.innerHTML = t('reportDamaged');
-      if (!data.ok) { showToast(t('errGeneric') + (data.error || t('errUploadFailed'))); return; }
-      showToast('✓ ' + component + t('toastComponentAdded'));
-      document.getElementById('damaged-component').value = '';
-      document.getElementById('damaged-description').value = '';
-      fileInput.value = '';
-      fetchAndRefreshCurrent();
-    })
-    .catch(() => {
-      btn.disabled = false;
-      btn.innerHTML = t('reportDamaged');
-      showToast(t('errNotUploaded'));
-    });
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.innerHTML = t('reportDamaged');
+    if (!data.ok) { showToast(t('errGeneric') + (data.error || t('errUploadFailed'))); return; }
+    showToast('✓ ' + component + t('toastComponentAdded'));
+    document.getElementById('damaged-component').value = '';
+    document.getElementById('damaged-description').value = '';
+    selectedDamagedPhotos = [];
+    document.getElementById('damaged-photo-grid').innerHTML = '';
+    fetchAndRefreshCurrent();
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = t('reportDamaged');
+    showToast(t('errNotUploaded'));
   });
 }
 
@@ -1116,24 +1143,19 @@ Rules:
 - Return ONLY the improved text, with no preamble, no explanation, and no quotation marks.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/polish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: original }]
-      })
+      body: JSON.stringify({ system: systemPrompt, text: original })
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error((err.error && err.error.message) || ('API error ' + res.status));
+      throw new Error(err.error || ('API error ' + res.status));
     }
 
     const data = await res.json();
-    const improved = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    const improved = (data.text || '').trim();
 
     if (improved) {
       textarea.value = improved;

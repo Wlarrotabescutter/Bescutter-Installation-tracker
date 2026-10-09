@@ -254,7 +254,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxSRjjNj_cg2hgXSrgBAjjL
 
 const NAMEPLATE_ICONS = {
   'Machine': '🛠️', 'Laser Head': '🔦', 'Air Compressor': '💨',
-  'Chiller': '❄️', 'Voltage Regulator': '🎛️', 'Transformer': '⚡',
+  'Chiller': '❄️', 'Transformer': '⚡', 'Laser Source': '🔆',
   'Dust Collector': '🌀', 'Fan': '🌬️', 'License Software': '🔑', 'Others': '➕'
 };
 
@@ -290,7 +290,7 @@ function fetchAndRender(firstLoad) {
       document.getElementById('content').style.display = 'block';
       if (!data.ok) { showToast('Could not load data: ' + (data.error||'')); return; }
       allJobs = data.jobs || [];
-      requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Voltage Regulator','Transformer'];
+      requiredComponents = data.requiredNameplateComponents || ['Machine','Laser Head','Chiller','Transformer','Laser Source'];
       optionalComponents = data.optionalNameplateComponents || ['Air Compressor','Dust Collector','Fan'];
       customersList = data.customers || [];
       techniciansList = data.technicians || [];
